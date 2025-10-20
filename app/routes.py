@@ -1,7 +1,5 @@
 from fastapi import APIRouter, HTTPException
 from app.schemas import (
-    SearchRequest, SearchResponse, SearchResultItem,
-    FetchRequest, FetchResponse,
     VerifyRequest, VerifyResponse
 )
 from core.search import search_serper, SearchError
@@ -15,19 +13,19 @@ router = APIRouter()
 # def say_hello():
 #     return {"message": "Hello from FactCheck!"}
 
-@router.post("/api/search", response_model=SearchResponse)
-def api_search(body: SearchRequest):
-    try:
-        results = search_serper(body.q, k=20)  
-    except SearchError as e:
-        raise HTTPException(status_code=502, detail=str(e))
-    items = [SearchResultItem(**r) for r in results[:12]]
-    return SearchResponse(query=body.q, results=items)
+# @router.post("/api/search", response_model=SearchResponse)
+# def api_search(body: SearchRequest):
+#     try:
+#         results = search_serper(body.q, k=20)  
+#     except SearchError as e:
+#         raise HTTPException(status_code=502, detail=str(e))
+#     items = [SearchResultItem(**r) for r in results[:12]]
+#     return SearchResponse(query=body.q, results=items)
 
-@router.post("/api/fetch", response_model=FetchResponse)
-def api_fetch(body: FetchRequest):
-    page = fetch_page(body.url)
-    return FetchResponse(**page)
+# @router.post("/api/fetch", response_model=FetchResponse)
+# def api_fetch(body: FetchRequest):
+#     page = fetch_page(body.url)
+#     return FetchResponse(**page)
 
 @router.post("/api/verify", response_model=VerifyResponse)
 def api_verify(body: VerifyRequest):

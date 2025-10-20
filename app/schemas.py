@@ -1,37 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
-class SearchRequest(BaseModel):
-    q: str = Field(..., description="Search query")
-
-class SearchResultItem(BaseModel):
-    title: str
-    link: str
-    snippet: str
-    date: Optional[str] = None
-    source: Optional[str] = None
-    domain: Optional[str] = None
-    rank: int
-
-class SearchResponse(BaseModel):
-    query: str
-    results: List[SearchResultItem]
-
-class FetchRequest(BaseModel):
-    url: str
-
-class FetchResponse(BaseModel):
-    url: str
-    domain: str
-    title: str
-    published_at: str | None
-    language: str | None
-    text: str
-    ok: bool
-    reason: str | None
-    elapsed_sec: float | None = None
-
-
 class VerifyRequest(BaseModel):
     claim: str = Field(..., description="Claim to verify")
 
@@ -43,9 +12,16 @@ class EvidenceItem(BaseModel):
     language: Optional[str] = None
     chunks: List[str]
 
+    nli_evaluated: Optional[bool] = None
+    nli_max_entail: Optional[float] = None
+    nli_max_contra: Optional[float] = None
+    nli_best_ent_chunk: Optional[str] = None
+    nli_best_contra_chunk: Optional[str] = None
+
 class VerifyResponse(BaseModel):
     claim: str
-    score_heuristic: float
+    score: float
     unique_domains: int
+    coverage_bucket: Optional[str] = None
     sources: List[EvidenceItem]
     notes: Optional[str] = None

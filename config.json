@@ -1,0 +1,61 @@
+{
+  "BASE_SCORE": 45.0,
+
+  "COVERAGE_LOW_THRESHOLD": 4,
+  "COVERAGE_HIGH_THRESHOLD": 8,
+  "COVERAGE_LOW_FACTOR": 0.5,
+  "COVERAGE_MID_FACTOR": 1.0,
+  "COVERAGE_HIGH_FACTOR": 1.1,
+
+  "BONUS_DOMAIN_SCALE": 6.0,
+  "BONUS_RECENCY_SCALE": 5.0,
+
+  "RECENCY_BUCKETS": [
+    [90, 1.15],
+    [365, 1.10],
+    [1095, 1.00],
+    [3650, 0.95]
+  ],
+
+  "SUFFIX_DEFAULTS": {
+    ".gov": 1.2,
+    ".edu": 1.15,
+    ".ac.il": 1.12
+  },
+
+  "DOMAIN_WEIGHTS": {
+    "www.gov.il": 1.25,
+    "www.who.int": 1.30,
+    "www.nih.gov": 1.25,
+    "www.cdc.gov": 1.25,
+    "www.bbc.com": 1.15,
+    "www.reuters.com": 1.15,
+    "www.apnews.com": 1.15,
+    "www.nature.com": 1.25,
+    "www.sciencedirect.com": 1.20,
+    "www.nejm.org": 1.25,
+    "www.bmj.com": 1.25,
+    "www.nytimes.com": 1.10,
+    "www.theguardian.com": 1.10,
+    "www.snopes.com": 1.10,
+    "www.fullfact.org": 1.15,
+    "www.politifact.com": 1.10
+  },
+
+  "NLI_MODEL_NAME": "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli",
+  "NLI_DEVICE": "auto",
+  "NLI_MAX_CHUNKS_TOTAL": 25,
+  "NLI_MIN_KEYWORD_MATCH": 1,
+
+  "NLI_SUPPORT_SCALE": 80.0,
+  "NLI_CONTRADICT_PENALTY": 50.0,
+  "INCLUDE_NEUTRAL_AS": 0,
+
+  "FINAL_BLEND_ALPHA": 0.70,
+ 
+  "DEBUG_NUMERIC_ONLY": true,
+  "NLI_EXCERPT_THRESHOLD": 0.50,
+  "NLI_MIN_SOURCE_CONF": 0.20
+
+
+}

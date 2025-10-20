@@ -21,7 +21,7 @@ def split_to_chunks(text: str, max_chars: int = 500) -> list[str]:
 def keywords_from_claim(claim: str) -> list[str]:
     claim_lc = claim.lower()
     tokens = re.findall(r"[a-zA-Zא-ת]+", claim_lc)
-    stop = set(["של", "על", "עם", "לא", "אין", "אם", "את", "זה", "זו", "that", "the", "and", "or", "is", "are"])
+    stop = set(["של", "על", "עם", "אם", "את", "זה", "זו", "that", "the", "and", "or", "is", "are"])
     kws = [t for t in tokens if t not in stop and len(t) > 1]
     freq = Counter(kws)
     return [w for w, _ in freq.most_common(10)]

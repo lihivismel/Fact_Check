@@ -1,11 +1,29 @@
+
+# Python
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+*.log
+.env
 .venv/
-env/
-.conda/
-.DS_Store
+venv/
+.env.*
+.cache/
 .idea/
 .vscode/
-.env
-.env.*
-config.json
+
+# Project
+logs/
+data/
+*.sqlite
+*.db
+*.db-*
+.trafilatura-cache/
+models/
+checkpoints/
+
+# Node 
+node_modules/
+dist/
+build/
