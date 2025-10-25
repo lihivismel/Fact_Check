@@ -27,7 +27,7 @@ router = APIRouter()
 #     page = fetch_page(body.url)
 #     return FetchResponse(**page)
 
-@router.post("/api/verify", response_model=VerifyResponse)
+@router.post("/verify", response_model=VerifyResponse)
 def api_verify(body: VerifyRequest):
     try:
         result = verify_claim_pipeline(body.claim, search_k=20, fetch_k=10, chunks_per_page=6)

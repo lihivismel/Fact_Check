@@ -86,12 +86,18 @@ def _heuristic_score(evidence: List[Dict[str, Any]], cfg: Dict[str, Any]) -> tup
         print(f"[HEUR] base={base:.1f} bonus={bonus:.1f} total={raw:.1f}")
     return raw, factor, bucket
 
-def verify_claim_pipeline(claim: str, search_k: int = 30, fetch_k: int = 12, chunks_per_page: int = 6) -> Dict[str, Any]:
+def verify_claim_pipeline(
+    claim: str,
+    search_k: int = 20,
+    fetch_k: int = 6,
+    chunks_per_page: int = 3
+) -> Dict[str, Any]:
     cfg = get_cfg()
     dbg = bool(cfg.get("DEBUG_NUMERIC_ONLY", False))
     if dbg:
         print(f"[CLAIM] {claim}")
 
+    # 1. search
     search_results = search_serper(claim, k=search_k)
     picked = search_results[:fetch_k]
     if dbg:
@@ -100,17 +106,20 @@ def verify_claim_pipeline(claim: str, search_k: int = 30, fetch_k: int = 12, chu
     evidence: List[Dict[str, Any]] = []
     all_chunks: List[Dict[str, Any]] = []
 
+    # 2. keywords for pre-filter
     kws = keywords_from_claim(claim)
     kw_min = int(cfg.get("NLI_MIN_KEYWORD_MATCH", 2))
     if dbg:
         print(f"[KWS] {kws} min_match={kw_min}")
 
+    # 3. fetch pages + take top chunks
     for res in picked:
         page = fetch_page(res["link"])
         if not page.get("ok"):
             continue
 
         chunks = select_top_chunks(page["text"], claim, top_n=chunks_per_page)
+
         ev = {
             "url": page["url"],
             "domain": page["domain"],
@@ -121,26 +130,33 @@ def verify_claim_pipeline(claim: str, search_k: int = 30, fetch_k: int = 12, chu
         }
         evidence.append(ev)
 
+        # keyword gate for NLI
         for ch in chunks:
             score = score_chunk_by_keywords(ch, kws)
             if score >= kw_min:
-                all_chunks.append({"domain": page["domain"], "url": page["url"], "chunk": ch})
+                all_chunks.append({
+                    "domain": page["domain"],
+                    "url": page["url"],
+                    "chunk": ch
+                })
             elif dbg:
-                # numeric-only, no text printing
                 print(f"[FILTER] domain={page['domain']} kw_score={score} -> skip")
 
     if dbg:
         print(f"[CHUNKS] eligible_for_nli={len(all_chunks)}")
 
+    # 4. safety cap on NLI volume
     max_total = int(cfg.get("NLI_MAX_CHUNKS_TOTAL", 30))
     if len(all_chunks) > max_total:
         if dbg:
             print(f"[LIMIT] chunks {len(all_chunks)} -> {max_total}")
         all_chunks = all_chunks[:max_total]
 
-    per_source = {}
+    # 5. run NLI and aggregate per source (url)
+    per_source: Dict[str, Dict[str, Any]] = {}
     for item in all_chunks:
         ent, contra, neut = nli_support_contradict(item["chunk"], claim)
+
         u = item["url"]
         rec = per_source.setdefault(u, {
             "domain": item["domain"],
@@ -152,17 +168,21 @@ def verify_claim_pipeline(claim: str, search_k: int = 30, fetch_k: int = 12, chu
             "best_ent_chunk": "",
             "best_contra_chunk": ""
         })
+
         if ent > rec["max_entail"]:
             rec["max_entail"] = ent
             rec["best_ent_chunk"] = item["chunk"]
+
         if contra > rec["max_contra"]:
             rec["max_contra"] = contra
             rec["best_contra_chunk"] = item["chunk"]
+
         rec["neutral"] = max(rec["neutral"], neut)
+
         if dbg:
             print(f"[NLI] domain={item['domain']} entail={ent:.3f} contra={contra:.3f} neut={neut:.3f}")
 
-    # mark non-evaluated
+    # 6. add sources we saw but didn't evaluate via NLI
     evaluated_urls = set(per_source.keys())
     for ev in evidence:
         if ev["url"] not in evaluated_urls:
@@ -174,77 +194,133 @@ def verify_claim_pipeline(claim: str, search_k: int = 30, fetch_k: int = 12, chu
                 "neutral": 0.0,
                 "best_ent_chunk": "",
                 "best_contra_chunk": "",
-                "nli_evaluated": False
+                "nli_evaluated": False,
+                "nli_included": False
             }
             if dbg:
                 print(f"[NLI] domain={ev['domain']} not_evaluated")
 
+    # 7. heuristic score (authority, coverage, recency...)
     score_h, coverage_factor, coverage_bucket = _heuristic_score(evidence, cfg)
 
-    supp_scale = float(cfg.get("NLI_SUPPORT_SCALE", 80.0))
-    cont_pen  = float(cfg.get("NLI_CONTRADICT_PENALTY", 50.0))
-    neutral_as = float(cfg.get("INCLUDE_NEUTRAL_AS", 0.0))
-    min_conf  = float(cfg.get("NLI_MIN_SOURCE_CONF", 0.20))
+    # 8. NLI scoring with stricter filtering
+    supp_scale   = float(cfg.get("NLI_SUPPORT_SCALE", 80.0))
+    cont_pen     = float(cfg.get("NLI_CONTRADICT_PENALTY", 50.0))
+    neutral_as   = float(cfg.get("INCLUDE_NEUTRAL_AS", 0.0))
+    min_conf     = float(cfg.get("NLI_MIN_SOURCE_CONF", 0.20))
+    min_import   = float(cfg.get("NLI_SOURCE_MIN_IMPORTANCE", 0.4))
 
-    nli_vals = []
+    nli_vals: List[float] = []
+
     for rec in per_source.values():
+        rec["nli_included"] = False
+
         if not rec["nli_evaluated"]:
-            rec["nli_included"] = False
+            # cannot use this source in NLI score
             continue
 
-        # include source in NLI only if at least one side (support/contradict) is confident enough
+        # gate 1: require at least one strong side
         if max(rec["max_entail"], rec["max_contra"]) < min_conf:
-            rec["nli_included"] = False
             if dbg:
-                print(f"[SRC] domain={rec['domain']} skipped(min_conf) entail={rec['max_entail']:.2f} contra={rec['max_contra']:.2f}")
+                print(
+                    f"[SRC] domain={rec['domain']} skipped(min_conf) "
+                    f"entail={rec['max_entail']:.2f} contra={rec['max_contra']:.2f}"
+                )
             continue
 
-        s = supp_scale * rec["max_entail"] - cont_pen * rec["max_contra"]
+        # gate 2: require overall importance
+        importance = rec["max_entail"] + rec["max_contra"]
+        if importance < min_import:
+            if dbg:
+                print(
+                    f"[SRC] domain={rec['domain']} skipped(importance<{min_import}) "
+                    f"entail={rec['max_entail']:.2f} contra={rec['max_contra']:.2f} sum={importance:.2f}"
+                )
+            continue
+
+        # passed both gates, include in NLI score
+        s_val = supp_scale * rec["max_entail"] - cont_pen * rec["max_contra"]
         if neutral_as != 0.0:
-            s += neutral_as * rec["neutral"]
+            s_val += neutral_as * rec["neutral"]
 
         rec["nli_included"] = True
-        nli_vals.append(s)
+        rec["nli_score_component"] = s_val  # save for later debugging/sorting
+        nli_vals.append(s_val)
+
         if dbg:
-            print(f"[SRC] domain={rec['domain']} entail={rec['max_entail']:.2f} contra={rec['max_contra']:.2f} s={s:.1f}")
+            print(
+                f"[SRC] domain={rec['domain']} included "
+                f"entail={rec['max_entail']:.2f} contra={rec['max_contra']:.2f} s={s_val:.1f}"
+            )
 
-
+    # 9. compute aggregate NLI score
     if nli_vals:
         nli_score = max(0.0, min(100.0, sum(nli_vals) / len(nli_vals)))
     else:
         nli_score = 0.0
 
+    # final blend
     alpha = float(cfg.get("FINAL_BLEND_ALPHA", 0.75))
-    final = (1 - alpha) * score_h + alpha * nli_score
-    final = max(0.0, min(100.0, final))
+    final_score = (1 - alpha) * score_h + alpha * nli_score
+    final_score = max(0.0, min(100.0, final_score))
 
     if dbg:
         print(f"[NLI_SUM] n={len(nli_vals)} mean={nli_score:.1f}")
-        print(f"[FINAL] alpha={alpha} heuristic={score_h:.1f} nli={nli_score:.1f} -> score={final:.1f}")
+        print(
+            f"[FINAL] alpha={alpha} heuristic={score_h:.1f} "
+            f"nli={nli_score:.1f} -> score={final_score:.1f}"
+        )
 
-    # redact example sentences unless above threshold
+    # 10. build list for frontend.
+    # We only want sources that actually passed nli_included == True.
+    # After that, we'll RANK them and take only top 5 for the UI.
     excerpt_thr = float(cfg.get("NLI_EXCERPT_THRESHOLD", 0.65))
-    enriched_sources = []
+
+    enriched_sources_full: List[Dict[str, Any]] = []
     for ev in evidence:
         rec = per_source[ev["url"]]
+
+        if not rec.get("nli_included", False):
+            # hide weak/irrelevant sources completely
+            continue
+
         ent_ex = rec["best_ent_chunk"] if rec["max_entail"] >= excerpt_thr else ""
         con_ex = rec["best_contra_chunk"] if rec["max_contra"] >= excerpt_thr else ""
-        enriched_sources.append({
+
+        enriched_sources_full.append({
             **ev,
             "nli_evaluated": rec["nli_evaluated"],
             "nli_included": rec.get("nli_included", False),
             "nli_max_entail": round(rec["max_entail"], 3),
             "nli_max_contra": round(rec["max_contra"], 3),
             "nli_best_ent_chunk": ent_ex,
-            "nli_best_contra_chunk": con_ex
+            "nli_best_contra_chunk": con_ex,
+            "nli_score_component": rec.get("nli_score_component", 0.0),
+            "domain_bonus": float(cfg.get("BONUS_DOMAINS", {}).get(rec["domain"], 1.0))
         })
 
+    # 11. sort sources for presentation priority:
+    #    1) higher domain_bonus first (authoritative domains first)
+    #    2) higher nli_score_component (stronger evidence)
+    enriched_sources_full.sort(
+        key=lambda s: (
+            s.get("domain_bonus", 1.0),
+            s.get("nli_score_component", 0.0)
+        ),
+        reverse=True
+    )
+
+    # 12. take top 5 only for the frontend
+    enriched_top5 = enriched_sources_full[:5]
 
     return {
         "claim": claim,
-        "score": round(final, 1),
+        "score": round(final_score, 1),
         "unique_domains": len({ev["domain"] for ev in evidence}),
         "coverage_bucket": coverage_bucket,
-        "sources": enriched_sources,
-        "notes": "Numeric-only debug prints; example sentences shown only if prob≥NLI_EXCERPT_THRESHOLD."
+        "sources": enriched_top5,
+        "notes": (
+            "Only top sources shown (ranked by domain authority + evidence strength). "
+            "Full set used internally for scoring."
+        )
     }
