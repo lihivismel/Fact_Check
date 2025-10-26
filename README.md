@@ -26,7 +26,7 @@ React, TailwindCSS
 ---
 
 ##  Key Features
-- Real-time claim verification via REST API  
+- Real-time claim verification via REST API
 - Integrated web search & scraping pipeline  
 - Multilingual NLI model support (English/Hebrew)  
 - Interactive, modern UI with credibility gauge  
@@ -34,8 +34,9 @@ React, TailwindCSS
 
 
 ## Future Improvements
--Enhanced source relevance filtering
--Browser extension integration – prepare the system to work as an in-browser fact-checking plugin
--User accounts and personalization – allow users to create accounts and save articles they’re interested in
--Visualization of evidence contribution – show how each source contributes to the overall score
+- Enhanced source relevance filtering
+- Browser extension integration – prepare the system to work as an in-browser fact-checking plugin
+- User accounts and personalization – allow users to create accounts and save articles they’re interested in
+- Visualization of evidence contribution – show how each source contributes to the overall score
+
 
