@@ -188,7 +188,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Debug JSON view */}
+          {/* Debug JSON view
           <div className="mt-6">
             <h3 className="text-sm font-medium text-gray-700 mb-2">
               Full JSON (debug view)
@@ -196,7 +196,7 @@ export default function App() {
             <pre className="text-xs bg-gray-50 p-3 rounded-xl overflow-auto">
               {JSON.stringify(result, null, 2)}
             </pre>
-          </div>
+          </div> */}
         </section>
       )}
     </div>
