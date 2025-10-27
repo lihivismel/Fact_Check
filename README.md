@@ -30,7 +30,24 @@ React, TailwindCSS
 - Integrated web search & scraping pipeline  
 - Multilingual NLI model support (English/Hebrew)  
 - Interactive, modern UI with credibility gauge  
-- Weighted scoring system (AI + heuristics)  
+- Weighted scoring system (AI + heuristics)
+
+  ## How to Run
+  
+#### Backend (FastAPI)
+From the project root:
+
+pip install -r requirements.txt
+
+uvicorn app.main:app --reload
+#### Frontend (React)
+In another terminal:
+
+cd react
+
+npm install
+
+npm run dev
 
 
 ## Future Improvements
@@ -38,5 +55,7 @@ React, TailwindCSS
 - Browser extension integration – prepare the system to work as an in-browser fact-checking plugin
 - User accounts and personalization – allow users to create accounts and save articles they’re interested in
 - Visualization of evidence contribution – show how each source contributes to the overall score
+
+
 
 
