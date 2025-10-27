@@ -36,12 +36,17 @@ React, TailwindCSS
   
 #### Backend (FastAPI)
 From the project root:
+
 pip install -r requirements.txt
+
 uvicorn app.main:app --reload
 #### Frontend (React)
 In another terminal:
+
 cd react
+
 npm install
+
 npm run dev
 
 
@@ -50,6 +55,7 @@ npm run dev
 - Browser extension integration – prepare the system to work as an in-browser fact-checking plugin
 - User accounts and personalization – allow users to create accounts and save articles they’re interested in
 - Visualization of evidence contribution – show how each source contributes to the overall score
+
 
 
 
